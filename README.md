@@ -538,7 +538,7 @@ copies or substantial portions of the Software.
 
 ## 🐛 Known Limitations
 
-- Safari only supports HLS (`.m3u8`), not DASH (`.mpd`)
+- Safari only support not DASH (`.mpd`)
 - DRM protection limited to Clear Key (no Widevine/PlayReady)
 - Some older devices may not support 1080p playback
 - Picture-in-Picture not available on all browsers
@@ -586,16 +586,6 @@ When reporting bugs, please include:
 
 ---
 
-## 📊 Stats
-
-- **1,173+** streaming channels
-- **50+** categories
-- **30+** languages supported
-- **100%** client-side processing
-- **0** external dependencies
-- **< 500KB** total size
-
----
 
 ## ⭐ Show Your Support
 
@@ -619,6 +609,6 @@ If you find this project useful, please:
 
 ---
 
-**Last Updated:** August 2024  
+**Last Updated:** August 2026 
 **Status:** ✅ Active & Maintained  
 **Questions?** Open an issue on GitHub!
