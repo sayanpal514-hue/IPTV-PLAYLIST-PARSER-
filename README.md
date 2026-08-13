@@ -21,7 +21,7 @@ Experience 1,173+ streaming channels with full DRM support, adaptive bitrate str
 ## ✨ Features
 
 ### 🎬 Playback & Streaming
-- **Multi-Format Support** - DASH (`.mpd`), HLS (`.m3u8`), and HTTP streams
+- **Multi-Format Support** - DASH (`.mpd`)
 - **Adaptive Bitrate Streaming** - Automatic quality switching based on network conditions
 - **DRM Protection** - Clear Key DRM decryption support
 - **Picture-in-Picture** - Float video while browsing (PiP)
