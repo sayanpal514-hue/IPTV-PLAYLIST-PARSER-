@@ -118,8 +118,6 @@ Standard extended M3U format with IPTV attributes:
 #EXTHTTP:{"cookie":"__hdnea__=value123", "Origin":"https://example.com", "Referer":"https://example.com"}
 https://example.com/stream.mpd
 
-#EXTINF:-1 tvg-id="100" tvg-name="Colors HD" tvg-logo="https://example.com/colors.png" group-title="Entertainment",Colors HD
-https://example.com/colors.m3u8
 ```
 
 ### JSON API Format - Option 1 (Recommended)
