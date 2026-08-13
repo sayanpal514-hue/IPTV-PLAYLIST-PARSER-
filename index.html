@@ -254,10 +254,9 @@
   <!-- Playlist Input Area -->
   <div id="playlist-area">
     <div class="row">
-      <input type="text" id="playlistUrl" placeholder="Enter M3U/JSON URL…" value="https://sportlink-fifa-live.pages.dev/star.json">
+      <input type="text" id="playlistUrl" placeholder="Enter M3U/JSON URL…" value="">
       <button class="btn" id="loadUrlBtn">Load URL</button>
       <button class="btn btn-secondary toggle-paste" id="togglePasteBtn">📋 Paste</button>
-      <button class="btn btn-secondary" id="sampleBtn">📄 Sample</button>
     </div>
     <div class="paste-area" id="pasteArea">
       <textarea id="playlistText" placeholder="Paste M3U playlist or JSON content here…"></textarea>
@@ -283,8 +282,6 @@
 (function(){
 "use strict";
 
-var DEFAULT_API = "";
-
 var $overlay = document.getElementById("overlay");
 var $loadMsg = document.getElementById("loadMsg");
 var $status  = document.getElementById("status");
@@ -300,7 +297,6 @@ var $pasteArea = document.getElementById("pasteArea");
 var $playlistText = document.getElementById("playlistText");
 var $loadPasteBtn = document.getElementById("loadPasteBtn");
 var $clearPasteBtn = document.getElementById("clearPasteBtn");
-var $sampleBtn = document.getElementById("sampleBtn");
 var $countEl = document.querySelector('.header .count');
 
 var _stTmr = null;
@@ -507,7 +503,6 @@ function parseJSON(data) {
     if (ch.stream_url) {
       ch.stream_url = ch.stream_url.replace(/\/\//g, '/').replace(':/', '://');
     }
-    // Extract channel number from name if available
     var match = ch.name && ch.name.match(/^(\d+)\s/);
     if (match) {
       ch.channel_number = match[1];
@@ -865,7 +860,6 @@ async function startPlayer(ch){
 
   var T=shaka.net.NetworkingEngine.RequestType;
   player.getNetworkingEngine().registerRequestFilter(function(type,req){
-    // Set headers from channel config
     if (headers['Referer']) req.headers["Referer"] = headers['Referer'];
     else req.headers["Referer"] = "https://www.jiotv.com/";
     
@@ -901,7 +895,6 @@ async function startPlayer(ch){
     refreshing=true; lastTry=now; retries++;
     toast("Reconnecting… ("+retries+"/5)","warn",0);
     try{
-      // Try to find fresh data from parsed channels
       var fresh = parsedChannels.find(function(c){ return c.id===ch.id; });
       if(fresh){
         cookie=fresh.cookie || '';
@@ -1002,13 +995,11 @@ async function startPlayer(ch){
 async function main() {
   var id = getChId();
   
-  // Check for saved content
   var loaded = false;
   try {
     var savedContent = localStorage.getItem('m3uContent');
     if (savedContent && savedContent.trim()) {
       $playlistText.value = savedContent;
-      // Try to parse it
       try {
         var jsonData = JSON.parse(savedContent);
         var channels = parseJSON(jsonData);
@@ -1038,12 +1029,12 @@ async function main() {
     }
   } catch(e) {}
 
-  // If nothing loaded, load default
   if (!loaded) {
-    await loadFromUrl($playlistUrl.value || DEFAULT_API, true);
+    $list.style.display = "flex";
+    hideOverlay();
+    toast("Enter a URL or paste a playlist to start", "warn", 5000);
   }
 
-  // If we have an ID and channels, auto-play
   if (id && parsedChannels.length) {
     var ch = parsedChannels.find(function(c){ return c.id === id; });
     if (ch) {
@@ -1064,14 +1055,6 @@ $togglePasteBtn.addEventListener("click", function() {
 
 $loadPasteBtn.addEventListener("click", function(){ loadFromPaste($playlistText.value); });
 $clearPasteBtn.addEventListener("click", function(){ $playlistText.value = ''; toast("Cleared", "warn", 2000); });
-
-$sampleBtn.addEventListener("click", function() {
-  var sample = '#EXTM3U\n#EXTINF:-1 tvg-id="460" tvg-name="Star Sports Select 1 HD" tvg-logo="https://img.media.jio.com/tvpimages/96/65/302113_1749664252703_l_medium.jpg" group-title="Sports",Star Sports Select 1 HD\n#KODIPROP:inputstream.adaptive.manifest_type=mpd\n#KODIPROP:inputstream.adaptive.license_type=clearkey\n#KODIPROP:inputstream.adaptive.license_key=c2c048e439d65316beeda6ef64d5d0f8:e2fdc132cbdee65501b845ce414fce39\n#EXTVLCOPT:http-user-agent=Virat Paglu\n#EXTHTTP:{"cookie":"__hdnea__=st=1786527591~exp=1786549191~acl=/bpk-tv/Star_Sports_Select_HD_1_BTS/WDVLive/*~hmac=98e1d983b63a8c916f2de63cf5cbcf4ef60cf223686c0b2509e03b5652a084a4","Origin":"https://www.jiotv.com/","Referer":"https://www.jiotv.com/"}\nhttps://jiotvpllive.cdn.jio.com//bpk-tv/Star_Sports_Select_HD_1_BTS/WDVLive/index.mpd';
-  $playlistText.value = sample;
-  $pasteArea.classList.add('show');
-  $togglePasteBtn.textContent = '✕ Close';
-  toast("Sample loaded! Click 'Parse' to load", "warn", 3000);
-});
 
 $playlistUrl.addEventListener("keydown", function(e) {
   if (e.key === "Enter") loadFromUrl($playlistUrl.value, true);
