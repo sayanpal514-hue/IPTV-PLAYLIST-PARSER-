@@ -195,5 +195,5 @@ For issues or questions, please open an issue on the repository or contact the m
 
 ---
 
-**Made with ❤️ for streaming enthusiasts**
+**Made with ❤️ by Sayan Pal**
 ```
