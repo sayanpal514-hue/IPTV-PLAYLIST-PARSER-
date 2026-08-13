@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@4.16.2/dist/controls.css">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;background:#0a0a0a;overflow:hidden;
+      font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+      -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+
+    #overlay{position:fixed;inset:0;background:#0a0a0a;z-index:9999;
+      display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+    #overlay svg{animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #overlay p{color:#555;font-size:13px;letter-spacing:.4px;
+      text-align:center;padding:0 24px;font-weight:500}
+
+    #channel-list{position:fixed;inset:0;background:#0a0a0a;z-index:9998;
+      display:none;flex-direction:column;overflow-y:auto;
+      padding:max(24px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom))}
+    
+    #channel-list .header{display:flex;align-items:center;justify-content:space-between;
+      padding-bottom:12px;border-bottom:1px solid #141414;flex-shrink:0;flex-wrap:wrap;gap:6px}
+    #channel-list .header h1{color:#fff;font-size:18px;font-weight:700;letter-spacing:.5px;
+      background:linear-gradient(135deg,#ef4444,#f97316,#eab308);-webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;background-clip:text}
+    #channel-list .header .subtitle{color:#555;font-size:9px;font-weight:400;letter-spacing:.5px;
+      text-transform:uppercase;background:rgba(255,255,255,0.05);padding:4px 10px;border-radius:10px;
+      border:1px solid rgba(255,255,255,0.05)}
+    #channel-list .header .count{color:#666;font-size:11px;font-weight:500}
+
+    #playlist-area{flex-shrink:0;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+    #playlist-area .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    #playlist-area .row input[type="text"]{flex:1;min-width:180px;padding:8px 14px;background:#111;border:1px solid #1a1a1a;
+      border-radius:8px;color:#aaa;font-size:12px;font-family:'Segoe UI',sans-serif;transition:border-color .3s}
+    #playlist-area .row input[type="text"]:focus{outline:none;border-color:#ef4444}
+    #playlist-area .row input[type="text"]::placeholder{color:#444}
+    #playlist-area .row .btn{background:linear-gradient(135deg,#ef4444,#f97316);border:none;border-radius:8px;
+      padding:8px 18px;color:#fff;font-size:11px;font-weight:600;cursor:pointer;transition:all .3s;white-space:nowrap}
+    #playlist-area .row .btn:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(239,68,68,0.3)}
+    #playlist-area .row .btn:active{transform:scale(.95)}
+    #playlist-area .row .btn-secondary{background:#1a1a1a;border:1px solid #2a2a2a}
+    #playlist-area .row .btn-secondary:hover{background:#222;border-color:#444;box-shadow:none}
+    #playlist-area .row .btn-success{background:linear-gradient(135deg,#22c55e,#16a34a)}
+    #playlist-area .toggle-paste{color:#666;font-size:10px;cursor:pointer;padding:4px 10px;
+      border-radius:6px;border:1px solid #1a1a1a;transition:all .3s;background:transparent}
+    #playlist-area .toggle-paste:hover{color:#aaa;border-color:#333}
+    #playlist-area .paste-area{display:none;margin-top:8px}
+    #playlist-area .paste-area textarea{width:100%;min-height:120px;background:#111;border:1px solid #1a1a1a;
+      border-radius:10px;color:#888;font-size:10px;padding:10px;resize:vertical;
+      font-family:'Consolas','Courier New',monospace;transition:border-color .3s}
+    #playlist-area .paste-area textarea:focus{outline:none;border-color:#ef4444}
+    #playlist-area .paste-area textarea::placeholder{color:#444}
+    #playlist-area .paste-area .paste-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    #playlist-area .paste-area.show{display:block}
+
+    #grid-wrapper{flex:1;overflow-y:auto;overflow-x:hidden;padding-top:12px;margin:0 -4px;padding-right:4px}
+    #grid-wrapper::-webkit-scrollbar{width:4px}
+    #grid-wrapper::-webkit-scrollbar-track{background:transparent}
+    #grid-wrapper::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#ef4444,#f97316);border-radius:4px}
+
+    #ch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+
+    .ch-card{
+      background:linear-gradient(145deg,#111,#0d0d0d);
+      border:1px solid #1a1a1a;
+      border-radius:14px;
+      padding:16px 12px;
+      cursor:pointer;
+      text-decoration:none;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      text-align:center;
+      gap:8px;
+      transition:all .3s cubic-bezier(.4,0,.2,1);
+      -webkit-tap-highlight-color:transparent;
+      min-height:130px;
+      justify-content:center;
+      position:relative;
+    }
+    .ch-card:hover{
+      transform:translateY(-3px);
+      border-color:#ef4444;
+      box-shadow:0 8px 30px rgba(239,68,68,0.15);
+    }
+    .ch-card:active{
+      transform:scale(.96);
+      background:#2a1010;
+    }
+    .ch-card:focus-visible{
+      outline:2px solid #ef4444;
+      outline-offset:2px;
+    }
+    .ch-card .ch-logo{
+      width:100%;
+      max-width:110px;
+      height:auto;
+      max-height:55px;
+      object-fit:contain;
+      border-radius:6px;
+      padding:4px;
+      transition:transform .3s;
+    }
+    .ch-card:hover .ch-logo{transform:scale(1.05)}
+    .ch-card .ch-name{
+      color:#e0e0e0;
+      font-size:12px;
+      font-weight:600;
+      line-height:1.3;
+      letter-spacing:.2px;
+    }
+    .ch-card .ch-group{
+      color:#666;
+      font-size:8px;
+      font-weight:400;
+      letter-spacing:.5px;
+      text-transform:uppercase;
+      background:rgba(255,255,255,0.05);
+      padding:2px 10px;
+      border-radius:10px;
+    }
+    .ch-card .ch-placeholder{
+      width:100%;
+      max-width:110px;
+      height:55px;
+      background:linear-gradient(135deg,#1a1a1a,#111);
+      border-radius:8px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#333;
+      font-size:14px;
+      font-weight:700;
+      border:1px solid #1a1a1a;
+    }
+    .ch-card .ch-placeholder .initials{
+      background:linear-gradient(135deg,#ef4444,#f97316);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      background-clip:text;
+    }
+    .ch-card .ch-id{color:#333;font-size:7px;font-weight:400;position:absolute;bottom:6px;left:10px}
+    .ch-card .ch-key-info{color:#333;font-size:7px;font-weight:400;position:absolute;bottom:6px;right:10px}
+
+    #pc{position:fixed;inset:0;background:#000;display:none;
+      align-items:center;justify-content:center;touch-action:manipulation}
+    video{width:100%;height:100%;object-fit:contain;background:#000;will-change:transform}
+    video.mode-fill{object-fit:fill}
+    video.mode-cover{object-fit:cover}
+
+    .back-btn{position:fixed;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));
+      z-index:9997;padding:8px 16px;background:rgba(0,0,0,0.8);border:1px solid rgba(255,255,255,0.1);
+      border-radius:10px;color:#fff;font-size:12px;font-weight:500;cursor:pointer;display:none;
+      align-items:center;gap:6px;backdrop-filter:blur(10px);transition:all .25s}
+    .back-btn:hover{background:rgba(239,68,68,0.2);border-color:#ef4444}
+    .back-btn svg{width:16px;height:16px}
+
+    #status{position:fixed;top:max(12px,env(safe-area-inset-top));
+      right:max(12px,env(safe-area-inset-right));z-index:9997;
+      padding:5px 13px;background:rgba(8,8,8,.9);
+      border:1px solid rgba(255,255,255,.05);
+      font-size:11px;font-weight:500;letter-spacing:.02em;border-radius:20px;
+      pointer-events:none;opacity:0;transition:opacity .3s;
+      max-width:280px;text-align:right;
+      backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+    #status.show{opacity:1}
+    #status.ok{color:#ef4444}
+    #status.warn{color:#fb923c}
+    #status.err{color:#f87171}
+
+    .sp-btn{
+      background:transparent!important;border:none!important;
+      cursor:pointer!important;padding:0 8px!important;
+      opacity:.8;display:flex;align-items:center;justify-content:center;gap:5px;
+      height:100%;min-width:36px;transition:opacity .15s,color .15s;color:#fff!important;
+      -webkit-tap-highlight-color:transparent}
+    .sp-btn:hover{opacity:1}
+    .sp-btn:active{opacity:1;transform:scale(.92)}
+    .sp-btn:focus-visible{outline:2px solid #ef4444;outline-offset:2px;border-radius:6px}
+    .sp-btn svg{width:18px;height:18px;display:block;pointer-events:none;flex-shrink:0}
+    .sp-btn.active{opacity:1;color:#ef4444!important}
+    .fit-ratio{font-size:11px;font-weight:600;letter-spacing:.2px;line-height:1;
+      white-space:nowrap;pointer-events:none}
+    .shaka-controls-container button{color:#fff!important}
+    .shaka-video-container{background-color:#000!important}
+
+    .shaka-controls-container .shaka-play-button,
+    .shaka-controls-container .shaka-mute-button,
+    .shaka-controls-container .shaka-volume-bar,
+    .shaka-controls-container .shaka-fullscreen-button,
+    .shaka-controls-container .shaka-overflow-menu-button {
+      color: #ef4444 !important;
+    }
+    .shaka-controls-container .shaka-seek-bar .shaka-seek-bar-played {
+      background: #ef4444 !important;
+    }
+    .shaka-controls-container .shaka-seek-bar .shaka-seek-bar-buffered {
+      background: #7f1d1d !important;
+    }
+
+    @media (max-width:400px){
+      .fit-ratio{font-size:9px}
+      .sp-btn{padding:0 6px!important;gap:3px}
+      #ch-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+      .ch-card{min-height:110px;padding:12px 8px}
+      .ch-card .ch-logo{max-height:40px}
+      .ch-card .ch-name{font-size:10px}
+      #channel-list .header h1{font-size:15px}
+      #playlist-area .row input[type="text"]{min-width:120px;font-size:10px}
+      #playlist-area .row .btn{padding:6px 12px;font-size:10px}
+      #playlist-area .paste-area textarea{min-height:80px;font-size:9px}
+    }
+    @media (min-width:768px){
+      #ch-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
+      .ch-card{min-height:150px;padding:20px 16px}
+      .ch-card .ch-logo{max-height:65px}
+      .ch-card .ch-name{font-size:14px}
+    }
+  </style>
+</head>
+<body>
+
+<div id="overlay">
+  <svg width="36" height="36" viewBox="0 0 40 40" fill="none">
+    <circle cx="20" cy="20" r="16" stroke="#161616" stroke-width="4"/>
+    <path d="M20 4a16 16 0 0 1 16 16" stroke="#ef4444" stroke-width="4" stroke-linecap="round"/>
+  </svg>
+  <p id="loadMsg">Loading…</p>
+</div>
+
+<div id="status"></div>
+
+<button class="back-btn" id="backBtn">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19 12H5M12 19l-7-7 7-7"/>
+  </svg>
+  Back
+</button>
+
+<div id="channel-list">
+  <div class="header">
+    <h1>📺 Sportlink</h1>
+    <span class="subtitle">MPD Player</span>
+    <span class="count">0 streams</span>
+  </div>
+
+  <!-- Playlist Input Area -->
+  <div id="playlist-area">
+    <div class="row">
+      <input type="text" id="playlistUrl" placeholder="Enter M3U/JSON URL…" value="https://sportlink-fifa-live.pages.dev/star.json">
+      <button class="btn" id="loadUrlBtn">Load URL</button>
+      <button class="btn btn-secondary toggle-paste" id="togglePasteBtn">📋 Paste</button>
+      <button class="btn btn-secondary" id="sampleBtn">📄 Sample</button>
+    </div>
+    <div class="paste-area" id="pasteArea">
+      <textarea id="playlistText" placeholder="Paste M3U playlist or JSON content here…"></textarea>
+      <div class="paste-actions">
+        <button class="btn btn-success" id="loadPasteBtn">▶ Parse</button>
+        <button class="btn btn-secondary" id="clearPasteBtn">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="grid-wrapper">
+    <div id="ch-grid"></div>
+  </div>
+</div>
+
+<div id="pc">
+  <video id="v" playsinline webkit-playsinline
+    preload="none" x5-video-player-type="h5" x5-video-player-fullscreen="true"></video>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/shaka-player@4.16.2/dist/shaka-player.ui.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+var DEFAULT_API = "https://sportlink-fifa-live.pages.dev/star.json";
+
+var $overlay = document.getElementById("overlay");
+var $loadMsg = document.getElementById("loadMsg");
+var $status  = document.getElementById("status");
+var $list    = document.getElementById("channel-list");
+var $grid    = document.getElementById("ch-grid");
+var $pc      = document.getElementById("pc");
+var $vid     = document.getElementById("v");
+var $backBtn = document.getElementById("backBtn");
+var $playlistUrl = document.getElementById("playlistUrl");
+var $loadUrlBtn = document.getElementById("loadUrlBtn");
+var $togglePasteBtn = document.getElementById("togglePasteBtn");
+var $pasteArea = document.getElementById("pasteArea");
+var $playlistText = document.getElementById("playlistText");
+var $loadPasteBtn = document.getElementById("loadPasteBtn");
+var $clearPasteBtn = document.getElementById("clearPasteBtn");
+var $sampleBtn = document.getElementById("sampleBtn");
+var $countEl = document.querySelector('.header .count');
+
+var _stTmr = null;
+var parsedChannels = [];
+var currentShaka = null;
+var isLoading = false;
+
+function getTier(){
+  var mem   = navigator.deviceMemory || 4;
+  var cores = navigator.hardwareConcurrency || 4;
+  var mob   = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  var conn  = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  var net   = conn ? (conn.effectiveType || "4g") : "4g";
+  if(!mob) return "high";
+  if(mem<=1.5 || cores<=2 || net==="slow-2g" || net==="2g") return "low";
+  if(mem<=3   || cores<=4) return "mid";
+  return "high";
+}
+var TIER = getTier();
+var PROF = {
+  low:  {buf:5,  reBuf:1.5, behind:15, maxH:480,  maxBw:1200000, bwEst:400000 },
+  mid:  {buf:8,  reBuf:1.5, behind:25, maxH:720,  maxBw:3500000, bwEst:1000000},
+  high: {buf:12, reBuf:1.5, behind:30, maxH:1080, maxBw:0,       bwEst:2000000}
+}[TIER];
+
+var FITS = ["contain","fill","cover"];
+var MODE_LABEL = {contain:"Fit",fill:"Fill",cover:"Zoom"};
+var FICO = {
+  contain:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="2" y1="21" x2="22" y2="21"/></svg>',
+  fill:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>',
+  cover:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M6 7l3 3m0 0H7m2 0V8m9-1l-3 3m0 0h2m-2 0V8M6 13l3-3m0 0H7m2 0v2m9 1l-3-3m0 0h2m-2 0v2"/></svg>'
+};
+var PIP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="12" width="7" height="5" rx="1" fill="currentColor" stroke="none"/></svg>';
+
+function toast(msg,type,dur){
+  $status.textContent=msg;
+  $status.className="show "+(type||"ok");
+  if(_stTmr) clearTimeout(_stTmr);
+  if(dur!==0){
+    _stTmr=setTimeout(function(){
+      $status.className=$status.className.replace("show","").trim();
+      _stTmr=null;
+    },dur||4000);
+  }
+}
+function setMsg(m)     { $loadMsg&&($loadMsg.textContent=m); }
+function hideOverlay() { $overlay&&($overlay.style.display="none"); }
+function showOverlay() { $overlay&&($overlay.style.display="flex"); }
+function getChId()     { return new URLSearchParams(location.search).get("id")||""; }
+function rawCookie(c)  { return c&&c.startsWith("__hdnea__=")?c.slice(10):(c||""); }
+function withCookie(u,r){
+  if(!u||!r) return u;
+  if(u.indexOf("__hdnea__")!==-1) return u;
+  return u+(u.indexOf("?")!==-1?"&":"?")+"__hdnea__="+r;
+}
+
+/* ─── M3U Parser with Cookie and User-Agent support ── */
+function parseM3U(content) {
+  var lines = content.split(/\r?\n/);
+  var channels = [];
+  var current = null;
+  var currentKeyId = '';
+  var currentKey = '';
+  var currentCookie = '';
+  var currentUserAgent = '';
+  var currentHeaders = {};
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+
+    // Skip comments and headers
+    if (line.startsWith('#EXTM3U') || 
+        line.startsWith('#PLAYLIST:') ||
+        line.startsWith('#LAST_UPDATE:') ||
+        line.startsWith('#TELEGRAM:') ||
+        line.startsWith('#OWNER:') ||
+        line.startsWith('#LIVE_COUNT:') ||
+        line.startsWith('#UPCOMING_COUNT:')) {
+      continue;
+    }
+
+    // Parse EXTINF line
+    if (line.startsWith('#EXTINF:')) {
+      current = { key_id: '', key: '', cookie: '', user_agent: '', headers: {}, properties: {} };
+      currentKeyId = '';
+      currentKey = '';
+      currentCookie = '';
+      currentUserAgent = '';
+      currentHeaders = {};
+      
+      var tvgIdMatch = line.match(/tvg-id="([^"]*)"/);
+      if (tvgIdMatch) current.id = tvgIdMatch[1];
+      
+      var tvgNameMatch = line.match(/tvg-name="([^"]*)"/);
+      if (tvgNameMatch) current.name = tvgNameMatch[1];
+      
+      var tvgLogoMatch = line.match(/tvg-logo="([^"]*)"/);
+      if (tvgLogoMatch) current.logo = tvgLogoMatch[1];
+      
+      var groupMatch = line.match(/group-title="([^"]*)"/);
+      if (groupMatch) current.group = groupMatch[1];
+      
+      var titleMatch = line.match(/,([^,]+)$/);
+      if (titleMatch && !current.name) current.name = titleMatch[1];
+      if (!current.name) current.name = 'Live Channel';
+      if (!current.group) current.group = 'General';
+      if (!current.logo) current.logo = '';
+      
+      continue;
+    }
+
+    // Parse KODIPROP lines
+    if (line.startsWith('#KODIPROP:')) {
+      var prop = line.replace('#KODIPROP:', '').trim();
+      
+      if (prop.includes('license_key=')) {
+        var keyPart = prop.split('license_key=')[1] || '';
+        var keyParts = keyPart.split(':');
+        if (keyParts.length === 2) {
+          currentKeyId = keyParts[0].trim();
+          currentKey = keyParts[1].trim();
+        } else {
+          var hexParts = keyPart.match(/[0-9a-f]{32}/gi);
+          if (hexParts && hexParts.length >= 2) {
+            currentKeyId = hexParts[0] || '';
+            currentKey = hexParts[1] || '';
+          }
+        }
+      }
+      
+      if (prop.includes('manifest_type=mpd')) {
+        if (current) current.isMpd = true;
+      }
+      
+      continue;
+    }
+
+    // Parse EXTVLCOPT for user-agent
+    if (line.startsWith('#EXTVLCOPT:')) {
+      var opt = line.replace('#EXTVLCOPT:', '').trim();
+      if (opt.includes('http-user-agent=')) {
+        currentUserAgent = opt.split('http-user-agent=')[1] || '';
+      }
+      continue;
+    }
+
+    // Parse EXTHTTP for cookie and headers (JSON format)
+    if (line.startsWith('#EXTHTTP:')) {
+      try {
+        var jsonStr = line.replace('#EXTHTTP:', '').trim();
+        var httpData = JSON.parse(jsonStr);
+        if (httpData.cookie) currentCookie = httpData.cookie;
+        if (httpData['User-Agent']) currentUserAgent = httpData['User-Agent'];
+        if (httpData['Referer']) currentHeaders['Referer'] = httpData['Referer'];
+        if (httpData['Origin']) currentHeaders['Origin'] = httpData['Origin'];
+        currentHeaders = httpData;
+      } catch(e) {
+        // If JSON parse fails, try to extract cookie manually
+        var cookieMatch = line.match(/cookie":"([^"]*)"/);
+        if (cookieMatch) currentCookie = cookieMatch[1];
+      }
+      continue;
+    }
+
+    // Parse URL
+    if (line.startsWith('http://') || line.startsWith('https://')) {
+      if (current) {
+        current.url = line;
+        current.key_id = currentKeyId || '00000000000000000000000000000000';
+        current.key = currentKey || '00000000000000000000000000000000';
+        current.cookie = currentCookie || '';
+        current.user_agent = currentUserAgent || '';
+        current.headers = currentHeaders || {};
+        if (!current.id) current.id = 'stream_' + (channels.length + 1);
+        
+        channels.push(current);
+        current = null;
+      }
+    }
+  }
+
+  console.log('📺 Parsed ' + channels.length + ' streams from M3U');
+  return channels;
+}
+
+/* ─── JSON Parser ── */
+function parseJSON(data) {
+  var channels = [];
+  if (data && Array.isArray(data.channels)) {
+    channels = data.channels;
+  } else if (data && Array.isArray(data)) {
+    channels = data;
+  } else if (data && data.id) {
+    channels = [data];
+  } else {
+    return null;
+  }
+  
+  return channels.map(function(ch) {
+    if (ch.cookie_expire && !ch.cookie_expires) {
+      ch.cookie_expires = ch.cookie_expire;
+    }
+    if (ch.stream_url) {
+      ch.stream_url = ch.stream_url.replace(/\/\//g, '/').replace(':/', '://');
+    }
+    // Extract channel number from name if available
+    var match = ch.name && ch.name.match(/^(\d+)\s/);
+    if (match) {
+      ch.channel_number = match[1];
+    }
+    if (!ch.key_id) ch.key_id = '00000000000000000000000000000000';
+    if (!ch.key) ch.key = '00000000000000000000000000000000';
+    if (!ch.user_agent) ch.user_agent = '';
+    if (!ch.cookie) ch.cookie = '';
+    return ch;
+  });
+}
+
+/* ─── load from URL ── */
+async function loadFromUrl(url, showLoading) {
+  if (isLoading) return;
+  if (!url || !url.trim()) {
+    toast("Please enter a valid URL", "warn", 3000);
+    return;
+  }
+  
+  isLoading = true;
+  if (showLoading !== false) showOverlay();
+  setMsg("Fetching playlist…");
+
+  try {
+    var r = await fetch(url.trim(), { 
+      cache: "no-store", 
+      headers: { Accept: "text/plain,application/json,application/vnd.apple.mpegurl,*/*" } 
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    var content = await r.text();
+    
+    var channels = null;
+    var isJson = false;
+    
+    // Try to parse as JSON first
+    try {
+      var jsonData = JSON.parse(content);
+      channels = parseJSON(jsonData);
+      if (channels && channels.length) {
+        isJson = true;
+        console.log('✅ Parsed as JSON: ' + channels.length + ' channels');
+      }
+    } catch(e) {}
+    
+    // If not JSON, try M3U
+    if (!channels || !channels.length) {
+      if (content.includes('#EXTM3U')) {
+        channels = parseM3U(content);
+        console.log('✅ Parsed as M3U: ' + channels.length + ' streams');
+      } else {
+        throw new Error("Not a valid M3U or JSON format");
+      }
+    }
+    
+    if (!channels || !channels.length) throw new Error("No streams found");
+    
+    renderChannels(channels);
+    toast("✅ " + channels.length + " streams loaded", "ok", 3000);
+    try {
+      localStorage.setItem('m3uUrl', url.trim());
+    } catch(e) {}
+  } catch (e) {
+    toast("Error: " + e.message, "err", 5000);
+  } finally {
+    isLoading = false;
+    if (showLoading !== false) hideOverlay();
+  }
+}
+
+/* ─── load from pasted content ── */
+function loadFromPaste(content) {
+  if (!content || !content.trim()) {
+    toast("Please paste playlist content", "warn", 3000);
+    return;
+  }
+
+  showOverlay();
+  setMsg("Parsing content…");
+
+  setTimeout(function() {
+    try {
+      var channels = null;
+      
+      // Try JSON first
+      try {
+        var jsonData = JSON.parse(content);
+        channels = parseJSON(jsonData);
+        if (channels && channels.length) {
+          console.log('✅ Parsed as JSON from paste: ' + channels.length + ' channels');
+        }
+      } catch(e) {}
+      
+      // Try M3U
+      if (!channels || !channels.length) {
+        if (content.includes('#EXTM3U')) {
+          channels = parseM3U(content);
+          console.log('✅ Parsed as M3U from paste: ' + channels.length + ' streams');
+        } else {
+          toast("Not a valid M3U or JSON format", "err", 3000);
+          hideOverlay();
+          return;
+        }
+      }
+      
+      if (!channels || !channels.length) {
+        toast("No streams found", "err", 3000);
+        hideOverlay();
+        return;
+      }
+      
+      renderChannels(channels);
+      toast("✅ " + channels.length + " streams loaded from paste", "ok", 3000);
+      try {
+        localStorage.setItem('m3uContent', content);
+      } catch(e) {}
+    } catch (e) {
+      toast("Parse error: " + e.message, "err", 5000);
+      hideOverlay();
+    }
+  }, 300);
+}
+
+/* ─── render channels ── */
+function renderChannels(channels) {
+  parsedChannels = channels;
+  $countEl.textContent = channels.length + ' streams';
+
+  var f = document.createDocumentFragment();
+  channels.forEach(function(ch, index) {
+    var a = document.createElement('a');
+    a.className = 'ch-card';
+    a.href = "?id=" + encodeURIComponent(ch.id || index);
+
+    var logoHtml = '';
+    if (ch.logo && ch.logo.trim()) {
+      logoHtml = '<img class="ch-logo" src="'+ch.logo+'" alt="'+ch.name+'" loading="lazy" onerror="this.style.display=\'none\'">';
+    } else {
+      var initials = ch.name.split(' ').slice(0,2).map(function(w){ return w[0]; }).join('');
+      logoHtml = '<div class="ch-placeholder"><span class="initials">'+initials+'</span></div>';
+    }
+
+    var hasKey = ch.key_id && ch.key_id !== '00000000000000000000000000000000' ? '🔑' : '';
+    var hasCookie = ch.cookie ? '🍪' : '';
+
+    a.innerHTML = 
+      logoHtml +
+      '<span class="ch-name">'+ch.name+'</span>' +
+      (ch.group ? '<span class="ch-group">'+ch.group+'</span>' : '') +
+      '<span class="ch-id">'+(ch.id || '')+'</span>' +
+      '<span class="ch-key-info">'+hasKey+hasCookie+'</span>';
+    
+    f.appendChild(a);
+  });
+
+  $grid.innerHTML = '';
+  $grid.appendChild(f);
+  $list.style.display = "flex";
+  hideOverlay();
+}
+
+/* ─── show/hide player ── */
+function showPlayer() {
+  $list.style.display = "none";
+  $pc.style.display = "flex";
+  $backBtn.style.display = "flex";
+}
+
+function hidePlayer() {
+  if (currentShaka) {
+    try { currentShaka.destroy(); } catch(e) {}
+    currentShaka = null;
+  }
+  $vid.pause();
+  $vid.removeAttribute('src');
+  $vid.load();
+
+  $list.style.display = "flex";
+  $pc.style.display = "none";
+  $backBtn.style.display = "none";
+
+  if (window.history && window.history.pushState) {
+    window.history.pushState({}, document.title, window.location.pathname);
+  }
+}
+
+function errMsg(msg){ setMsg(msg);$overlay.style.display="flex";toast(msg,"err",0); }
+function shakaErrStr(e){
+  if(!e) return "Unknown error";
+  var c={1:"Network",2:"Text",3:"Media",4:"Manifest",5:"Streaming",6:"DRM",7:"Player"};
+  var s=(c[e.category]||"Err")+" "+e.category+":"+e.code;
+  if(e.data&&e.data[0]&&typeof e.data[0]==="string") s+=" — "+e.data[0].slice(0,72);
+  return s;
+}
+
+function ratioLabel(w,h){
+  if(!w||!h) return "";
+  function gcd(a,b){ return b?gcd(b,a%b):a; }
+  var g=gcd(w,h)||1, rw=w/g, rh=h/g;
+  var common={"16:9":16/9,"4:3":4/3,"21:9":21/9,"1:1":1,"9:16":9/16,"3:2":3/2,"5:4":5/4,"2:1":2};
+  var real=w/h, best=null, bestDiff=.02;
+  Object.keys(common).forEach(function(k){
+    var d=Math.abs(common[k]-real);
+    if(d<bestDiff){ bestDiff=d; best=k; }
+  });
+  if(best) return best;
+  if(rw<=40&&rh<=40) return rw+":"+rh;
+  return real.toFixed(2)+":1";
+}
+
+function injectControls(container,vid,player){
+  var panel=container.querySelector(".shaka-controls-button-panel");
+  if(!panel) return;
+  var anchor=panel.querySelector(".shaka-fullscreen-button");
+
+  var fitIdx=0;
+  var fitBtn=document.createElement("button");
+  fitBtn.className="sp-btn sp-fit-btn";
+  fitBtn.title="Video fit: Fit";
+  fitBtn.innerHTML=
+    '<span class="fit-icon">'+FICO.contain+'</span>'+
+    '<span class="fit-ratio">--</span>';
+  if(anchor) panel.insertBefore(fitBtn,anchor);
+  else panel.appendChild(fitBtn);
+
+  function applyFit(i){
+    fitIdx=i; var m=FITS[i];
+    vid.classList.remove("mode-fill","mode-cover");
+    if(m==="fill") vid.classList.add("mode-fill");
+    if(m==="cover") vid.classList.add("mode-cover");
+    var ic=fitBtn.querySelector(".fit-icon");
+    if(ic) ic.innerHTML=FICO[m];
+    fitBtn.title="Video fit: "+MODE_LABEL[m];
+  }
+  fitBtn.addEventListener("click",function(e){
+    e.stopPropagation();applyFit((fitIdx+1)%FITS.length);
+  });
+  ["fullscreenchange","webkitfullscreenchange"].forEach(function(ev){
+    document.addEventListener(ev,function(){
+      if(!(document.fullscreenElement||document.webkitFullscreenElement)) applyFit(0);
+    });
+  });
+
+  function updateRatio(){
+    var lbl=ratioLabel(vid.videoWidth,vid.videoHeight);
+    var badge=fitBtn.querySelector(".fit-ratio");
+    if(badge&&lbl) badge.textContent=lbl;
+  }
+  vid.addEventListener("loadedmetadata",updateRatio);
+  vid.addEventListener("resize",updateRatio);
+  updateRatio();
+
+  var pipOk=!!(document.pictureInPictureEnabled||
+    (vid.webkitSupportsPresentationMode&&typeof vid.webkitSetPresentationMode==="function"));
+  if(pipOk){
+    var pipBtn=document.createElement("button");
+    pipBtn.className="sp-btn sp-pip-btn";
+    pipBtn.title="Picture in Picture";
+    pipBtn.innerHTML=PIP_ICON;
+    panel.insertBefore(pipBtn,fitBtn);
+
+    function setPipState(active){
+      pipBtn.classList.toggle("active",active);
+      pipBtn.title=active?"Exit Picture in Picture":"Picture in Picture";
+    }
+    pipBtn.addEventListener("click",async function(e){
+      e.stopPropagation();
+      try{
+        if(document.pictureInPictureEnabled){
+          if(document.pictureInPictureElement) await document.exitPictureInPicture();
+          else await vid.requestPictureInPicture();
+        } else if(vid.webkitSupportsPresentationMode){
+          vid.webkitSetPresentationMode(
+            vid.webkitPresentationMode==="picture-in-picture"?"inline":"picture-in-picture"
+          );
+        }
+      } catch(_){ toast("PiP unavailable","warn",2500); }
+    });
+    vid.addEventListener("enterpictureinpicture",function(){ setPipState(true); });
+    vid.addEventListener("leavepictureinpicture",function(){ setPipState(false); });
+    if(vid.webkitPresentationMode!==undefined){
+      vid.addEventListener("webkitpresentationmodechanged",function(){
+        setPipState(vid.webkitPresentationMode==="picture-in-picture");
+      });
+    }
+  }
+}
+
+async function startPlayer(ch){
+  showPlayer();
+  shaka.polyfill.installAll();
+  if(!shaka.Player.isBrowserSupported()){ errMsg("Browser not supported."); return; }
+
+  var player=new shaka.Player();
+  currentShaka = player;
+  await player.attach($vid);
+
+  new shaka.ui.Overlay(player,$pc,$vid).configure({
+    controlPanelElements:["play_pause","mute","volume","time_and_duration","spacer","quality","fullscreen"],
+    seekBarColors:{base:"#a8a8a8",buffered:"#7f1d1d",played:"#ef4444"}
+  });
+  setTimeout(function(){ injectControls($pc,$vid,player); },100);
+
+  var cookie=ch.cookie || '', raw=rawCookie(cookie);
+  var keyId=ch.key_id || '00000000000000000000000000000000';
+  var key=ch.key || '00000000000000000000000000000000';
+  var url=ch.stream_url || ch.url || '';
+  var userAgent = ch.user_agent || "Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36";
+  var headers = ch.headers || {};
+
+  if(!url){ toast("No stream URL","err",0); return; }
+
+  var restrictionsRelaxed=false;
+
+  function buildCfg(){
+    var restr={};
+    if(!restrictionsRelaxed){
+      if(PROF.maxH<1080) restr.maxHeight=PROF.maxH;
+      if(PROF.maxBw>0)   restr.maxBandwidth=PROF.maxBw;
+    }
+    var drmConfig = {};
+    if (keyId && key) {
+      drmConfig.clearKeys = {};
+      drmConfig.clearKeys[keyId] = key;
+    }
+    return {
+      drm: drmConfig,
+      manifest:{
+        defaultPresentationDelay:4,
+        ignoreTextStreamFailures:true,
+        retryParameters:{maxAttempts:5,baseDelay:500,backoffFactor:2,fuzzFactor:.5,timeout:30000}
+      },
+      streaming:{
+        lowLatencyMode:false,
+        bufferingGoal:  PROF.buf,
+        rebufferingGoal:PROF.reBuf,
+        bufferBehind:   PROF.behind,
+        safeSeekOffset: 4,
+        stallEnabled:   true,
+        stallThreshold: 1,
+        stallSkip:      .3,
+        inaccurateManifestTolerance:0,
+        retryParameters:{maxAttempts:5,baseDelay:500,backoffFactor:2,fuzzFactor:.5,timeout:30000}
+      },
+      abr:{
+        enabled:true,
+        defaultBandwidthEstimate:PROF.bwEst,
+        switchInterval:4,
+        restrictions:restr
+      }
+    };
+  }
+
+  player.configure(buildCfg());
+
+  var T=shaka.net.NetworkingEngine.RequestType;
+  player.getNetworkingEngine().registerRequestFilter(function(type,req){
+    // Set headers from channel config
+    if (headers['Referer']) req.headers["Referer"] = headers['Referer'];
+    else req.headers["Referer"] = "https://www.jiotv.com/";
+    
+    if (headers['Origin']) req.headers["Origin"] = headers['Origin'];
+    
+    if (headers['User-Agent']) req.headers["User-Agent"] = headers['User-Agent'];
+    else if (userAgent) req.headers["User-Agent"] = userAgent;
+    else req.headers["User-Agent"] = "Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36";
+    
+    if (cookie) req.headers["Cookie"] = cookie;
+    if (type===T.MANIFEST||type===T.SEGMENT) {
+      req.uris=req.uris.map(function(u){ return withCookie(u,raw); });
+    }
+  });
+
+  var refreshing=false, retries=0, edgeTried=false, lastTry=0, started=false;
+
+  function unmuteOnce(){ $vid.muted=false; }
+  $pc.addEventListener("pointerdown",unmuteOnce,{capture:true,once:true});
+  $pc.addEventListener("click",unmuteOnce,{capture:true,once:true});
+  $pc.addEventListener("keydown",unmuteOnce,{capture:true,once:true});
+
+  function goLiveEdge(){
+    if(refreshing) return;
+    try{ player.goToLive(); edgeTried=true; toast("Syncing…","warn",2000); }
+    catch(_){ reload(); }
+  }
+
+  async function reload(){
+    var now=Date.now();
+    if(refreshing||now-lastTry<1500) return;
+    if(retries>=5){ toast("Stream unavailable.","err",0); return; }
+    refreshing=true; lastTry=now; retries++;
+    toast("Reconnecting… ("+retries+"/5)","warn",0);
+    try{
+      // Try to find fresh data from parsed channels
+      var fresh = parsedChannels.find(function(c){ return c.id===ch.id; });
+      if(fresh){
+        cookie=fresh.cookie || '';
+        raw=rawCookie(cookie);
+        keyId=fresh.key_id || '00000000000000000000000000000000';
+        key=fresh.key || '00000000000000000000000000000000';
+        url=fresh.stream_url || fresh.url || '';
+        userAgent=fresh.user_agent || '';
+        headers=fresh.headers || {};
+      }
+      player.configure(buildCfg());
+      await player.load(url);
+      $vid.play().catch(function(){});
+      retries=0; edgeTried=false;
+      toast("● Live","ok",4000);
+    } catch(_){
+      setTimeout(reload, Math.min(1000*Math.pow(2,retries-1),8000));
+    } finally{ refreshing=false; }
+  }
+
+  var RECOVERABLE=[1001,1002,1003,4012,6006,6007,7000,7001,7002];
+
+  player.addEventListener("error",function(ev){
+    var err=ev.detail, code=err&&err.code;
+    if(code===4014 && !restrictionsRelaxed){
+      restrictionsRelaxed=true;
+      refreshing=true;
+      player.configure(buildCfg());
+      toast("Playing best available quality","warn",2500);
+      player.load(url)
+        .then(function(){
+          $vid.play().catch(function(){});
+          toast("● Live","ok",4000);
+        })
+        .catch(function(){ reload(); })
+        .finally(function(){ refreshing=false; });
+      return;
+    }
+
+    if(RECOVERABLE.indexOf(code)!==-1) reload();
+    else toast(shakaErrStr(err),"err",6000);
+  });
+
+  try{
+    setMsg("Loading stream…");
+    toast("Loading…","warn",0);
+    await player.load(url);
+    hideOverlay();
+    toast("Tap ▶ to start","ok",5000);
+  } catch(_){
+    hideOverlay();
+    toast("Retrying…","warn",0);
+    setTimeout(reload,1500);
+    return;
+  }
+
+  var stallTmr=null;
+  function onStall(){
+    if(!started||stallTmr||refreshing) return;
+    toast("Buffering…","warn",0);
+    stallTmr=setTimeout(function(){
+      stallTmr=null;
+      if(!edgeTried) goLiveEdge(); else reload();
+    },5000);
+  }
+  function onPlaying(){
+    started=true;
+    if(stallTmr){ clearTimeout(stallTmr); stallTmr=null; }
+    edgeTried=false;
+    if(!refreshing) toast("● Live","ok",3000);
+  }
+  $vid.addEventListener("waiting", onStall);
+  $vid.addEventListener("stalled", onStall);
+  $vid.addEventListener("playing", onPlaying);
+  $vid.addEventListener("error",   function(){ if(!refreshing) reload(); });
+
+  document.addEventListener("visibilitychange",function(){
+    if(!document.hidden){
+      setTimeout(function(){
+        if(started&&$vid.paused&&!refreshing) $vid.play().catch(function(){});
+      },400);
+    }
+  });
+
+  var netConn=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  if(netConn){
+    netConn.addEventListener("change",function(){
+      if(!player||restrictionsRelaxed) return;
+      var t=netConn.effectiveType||"4g";
+      var h=t==="slow-2g"||t==="2g"?240:t==="3g"?480:PROF.maxH;
+      try{ player.configure("abr.restrictions.maxHeight",h); } catch(_){}
+      if(h<PROF.maxH) toast("Slow network — reducing quality","warn",3000);
+    });
+  }
+}
+
+/* ─── main ── */
+async function main() {
+  var id = getChId();
+  
+  // Check for saved content
+  var loaded = false;
+  try {
+    var savedContent = localStorage.getItem('m3uContent');
+    if (savedContent && savedContent.trim()) {
+      $playlistText.value = savedContent;
+      // Try to parse it
+      try {
+        var jsonData = JSON.parse(savedContent);
+        var channels = parseJSON(jsonData);
+        if (channels && channels.length) {
+          renderChannels(channels);
+          loaded = true;
+          toast("✅ " + channels.length + " streams loaded from cache", "ok", 3000);
+        }
+      } catch(e) {
+        if (savedContent.includes('#EXTM3U')) {
+          channels = parseM3U(savedContent);
+          if (channels && channels.length) {
+            renderChannels(channels);
+            loaded = true;
+            toast("✅ " + channels.length + " streams loaded from cache", "ok", 3000);
+          }
+        }
+      }
+    }
+    if (!loaded) {
+      var savedUrl = localStorage.getItem('m3uUrl');
+      if (savedUrl) {
+        $playlistUrl.value = savedUrl;
+        await loadFromUrl(savedUrl, true);
+        loaded = true;
+      }
+    }
+  } catch(e) {}
+
+  // If nothing loaded, load default
+  if (!loaded) {
+    await loadFromUrl($playlistUrl.value || DEFAULT_API, true);
+  }
+
+  // If we have an ID and channels, auto-play
+  if (id && parsedChannels.length) {
+    var ch = parsedChannels.find(function(c){ return c.id === id; });
+    if (ch) {
+      document.title = "Sportlink · " + ch.name;
+      await startPlayer(ch);
+    }
+  }
+}
+
+/* ─── event bindings ── */
+$backBtn.addEventListener("click", hidePlayer);
+$loadUrlBtn.addEventListener("click", function(){ loadFromUrl($playlistUrl.value, true); });
+
+$togglePasteBtn.addEventListener("click", function() {
+  $pasteArea.classList.toggle('show');
+  $togglePasteBtn.textContent = $pasteArea.classList.contains('show') ? '✕ Close' : '📋 Paste';
+});
+
+$loadPasteBtn.addEventListener("click", function(){ loadFromPaste($playlistText.value); });
+$clearPasteBtn.addEventListener("click", function(){ $playlistText.value = ''; toast("Cleared", "warn", 2000); });
+
+$sampleBtn.addEventListener("click", function() {
+  var sample = '#EXTM3U\n#EXTINF:-1 tvg-id="460" tvg-name="Star Sports Select 1 HD" tvg-logo="https://img.media.jio.com/tvpimages/96/65/302113_1749664252703_l_medium.jpg" group-title="Sports",Star Sports Select 1 HD\n#KODIPROP:inputstream.adaptive.manifest_type=mpd\n#KODIPROP:inputstream.adaptive.license_type=clearkey\n#KODIPROP:inputstream.adaptive.license_key=c2c048e439d65316beeda6ef64d5d0f8:e2fdc132cbdee65501b845ce414fce39\n#EXTVLCOPT:http-user-agent=Virat Paglu\n#EXTHTTP:{"cookie":"__hdnea__=st=1786527591~exp=1786549191~acl=/bpk-tv/Star_Sports_Select_HD_1_BTS/WDVLive/*~hmac=98e1d983b63a8c916f2de63cf5cbcf4ef60cf223686c0b2509e03b5652a084a4","Origin":"https://www.jiotv.com/","Referer":"https://www.jiotv.com/"}\nhttps://jiotvpllive.cdn.jio.com//bpk-tv/Star_Sports_Select_HD_1_BTS/WDVLive/index.mpd';
+  $playlistText.value = sample;
+  $pasteArea.classList.add('show');
+  $togglePasteBtn.textContent = '✕ Close';
+  toast("Sample loaded! Click 'Parse' to load", "warn", 3000);
+});
+
+$playlistUrl.addEventListener("keydown", function(e) {
+  if (e.key === "Enter") loadFromUrl($playlistUrl.value, true);
+});
+
+$playlistText.addEventListener("keydown", function(e) {
+  if (e.ctrlKey && e.key === "Enter") loadFromPaste($playlistText.value);
+});
+
+window.addEventListener("popstate", function() {
+  if ($pc.style.display === "flex") hidePlayer();
+});
+
+document.addEventListener("keydown", function(e) {
+  if (e.key === "Escape" && $pc.style.display === "flex") {
+    hidePlayer();
+  }
+});
+
+document.addEventListener("DOMContentLoaded", main);
+
+})();
+</script>
+</body>
+</html>
