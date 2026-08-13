@@ -14,7 +14,7 @@ A powerful, modern browser-based IPTV player with support for M3U playlists, JSO
 
 **[👉 Try the Live Player Now](https://sayanpal514-hue.github.io/IPTV-PLAYLIST-PARSER-/)**
 
-Experience 1,173+ streaming channels with full DRM support, adaptive bitrate streaming, and advanced playback controls.
+Experience streaming channels with full DRM support, adaptive bitrate streaming, and advanced playback controls.
 
 ---
 
