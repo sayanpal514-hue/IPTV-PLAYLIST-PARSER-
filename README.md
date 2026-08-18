@@ -12,7 +12,7 @@ A powerful, modern browser-based IPTV player with support for M3U playlists, JSO
 
 ## 🎯 Live Demo
 
-**[👉 Try the Live Player Now](https://sayanpal514-hue.github.io/IPTV-PLAYLIST-PARSER-/)**
+**[👉 Try the Live Player Now](https://iptv-playlist-parser.sayanpal514.workers.dev/)**
 
 ## 📸 Interface Preview
 ![Website Screenshot](./Screenshot.png)
