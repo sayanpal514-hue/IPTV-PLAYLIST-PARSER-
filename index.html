@@ -357,6 +357,43 @@ function withCookie(u,r){
   return u+(u.indexOf("?")!==-1?"&":"?")+"__hdnea__="+r;
 }
 
+/* ─── CLEANUP FUNCTION (NEW) ── */
+function cleanupBeforeNewPlaylist() {
+  // Hide player if active
+  if ($pc.style.display === "flex") {
+    hidePlayer();
+  }
+  
+  // Destroy Shaka player instance
+  if (currentShaka) {
+    try {
+      currentShaka.destroy();
+    } catch(e) {
+      console.error("Error destroying Shaka player:", e);
+    }
+    currentShaka = null;
+  }
+  
+  // Stop video
+  if ($vid) {
+    try {
+      $vid.pause();
+      $vid.removeAttribute('src');
+      $vid.load();
+    } catch(e) {}
+  }
+  
+  // Clear parsed channels
+  parsedChannels = [];
+  
+  // Clear URL params
+  if (window.history && window.history.pushState) {
+    window.history.pushState({}, document.title, window.location.pathname);
+  }
+  
+  console.log("✓ Cleanup completed before loading new playlist");
+}
+
 /* ─── M3U Parser with Cookie and User-Agent support ── */
 function parseM3U(content) {
   var lines = content.split(/\r?\n/);
@@ -528,6 +565,9 @@ async function loadFromUrl(url, showLoading) {
     return;
   }
   
+  // CLEANUP BEFORE LOADING NEW PLAYLIST
+  cleanupBeforeNewPlaylist();
+  
   isLoading = true;
   if (showLoading !== false) showOverlay();
   setMsg("Fetching playlist…");
@@ -584,6 +624,9 @@ function loadFromPaste(content) {
     toast("Please paste playlist content", "warn", 3000);
     return;
   }
+
+  // CLEANUP BEFORE LOADING NEW PLAYLIST
+  cleanupBeforeNewPlaylist();
 
   showOverlay();
   setMsg("Parsing content…");
